@@ -1,41 +1,49 @@
 # demo-recorder
 
-Records a smooth scripted walkthrough of a website on GitHub's servers, so your own machine does no recording.
+Records smooth scripted walkthroughs of websites on GitHub's servers, so your own machine does no recording. Each project gets its own script.
 
-## Setup (once)
-
-1. Create a new GitHub repo (public repos get free Actions minutes with no limit).
-2. Put these files in it, keeping the folder layout:
-   ```
-   record-demo.mjs
-   package.json
-   .github/workflows/record-demo.yml
-   ```
-3. Push.
+```text
+lib/recorder.mjs              Shared: browser, cursor, scrolling, hovers, drags, saving the video
+record-mevire-demo.mjs        Mevire: home page, then the job board via the nav menu
+record-evolve-demo.mjs        Evolve: the whole scroll story, ending on the Day / Night switch
+record-arepo-demo.mjs         Arepo: home page, then the Products page via the header nav
+.github/workflows/record-demo.yml
+```
 
 ## Record a video
 
 1. On GitHub, open the repo's **Actions** tab.
-2. Pick **Record demo** on the left, then **Run workflow**. Change the URL if you want a different site.
-3. Wait about 2 to 3 minutes. Open the finished run and download **demo-video** at the bottom. It's a zip with `demo.mp4` inside.
+2. Pick **Record demo** on the left, then **Run workflow**. Choose the project. Leave the URL blank to use the one in that project's script, or paste another (a preview deploy, say).
+3. Wait a few minutes. Open the finished run and download the artifact at the bottom (`mevire-demo`, for example). It's a zip with the MP4 inside.
 
-## Tweaking the walkthrough
+## Add a project
 
-All the choreography lives in `main()` in `record-demo.mjs`, numbered by section:
+1. Copy `record-mevire-demo.mjs` to `record-<name>-demo.mjs`.
+2. Change `URL` and rewrite `walkthrough` using that site's headings and buttons. Call `markStart()` at the first frame worth keeping; everything before it is trimmed.
+3. Add `<name>` to the `options` list under `project` in `.github/workflows/record-demo.yml`.
+4. Add `"record:<name>": "node record-<name>-demo.mjs"` to the scripts in `package.json`.
 
-- Slower scrolling: lower `step` or raise `delay` in a `smoothScrollBy` call.
-- Longer pauses: raise the numbers in `wait(page, ...)`.
-- Hover something new: `await hover(page, page.getByText('Some text', { exact: true }));`
-- Different site: copy the file, and rewrite the section steps using that site's headings.
+## Tweaking a walkthrough
 
-If a heading or element isn't found, the script logs a warning and skips it instead of crashing, so check the run log if a section looks missing.
+Helpers you can use, all from `lib/recorder.mjs`:
+
+- `smoothScrollBy(page, px, speed)`: scroll with real wheel events. `speed` is `FAST`, `NORMAL`, `SLOW` or your own `{ step, delay }` (lower step or higher delay is slower).
+- `scrollTo(page, locator, { at: 0.15 })`: scroll until the element's top is 15% down the screen.
+- `scrollToBottom(page, speed)`
+- `hover(page, locator, pauseMs)`: glide the cursor over something and hold so its hover effect shows.
+- `click(page, locator)`: hover, then click.
+- `drag(page, locator, dx)`: press and drag sideways, for carousels.
+- `wait(page, ms)`
+
+If an element isn't found, the script logs a warning and skips that step instead of crashing, so check the run log if a section looks missing.
 
 ## Optional: test locally
 
 ```bash
 npm install
 npx playwright install chromium
-node record-demo.mjs
+npm run record:mevire        # or record:evolve, record:arepo
+DEMO_URL=http://localhost:3000 npm run record:mevire   # against a local dev server
 ```
-This is fine to run on an old Mac: the video is captured from the browser's own frames, so a slow machine makes the run take longer but doesn't make the video stutter as badly as a screen recorder would. Output is `videos/raw.webm`.
-# demo-recorder
+
+The video is captured from the browser's own frames, so a slow machine makes the run take longer but doesn't make the video stutter the way a screen recorder would. Output is `videos/raw.webm`.

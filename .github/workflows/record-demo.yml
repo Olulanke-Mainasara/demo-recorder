@@ -3,13 +3,26 @@ name: Record demo
 on:
   workflow_dispatch:
     inputs:
+      project:
+        description: Which walkthrough to run (record-<project>-demo.mjs)
+        type: choice
+        # Add a project here when you add its record-<project>-demo.mjs
+        options:
+          - mevire
+          - evolve
+          - arepo
+        default: mevire
       url:
-        description: Site to record
-        default: https://mevire.vercel.app
+        description: Site URL (leave blank to use the one in the project's script)
+        required: false
+        default: ""
 
 jobs:
   record:
     runs-on: ubuntu-latest
+    env:
+      PROJECT: ${{ inputs.project }}
+      DEMO_URL: ${{ inputs.url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,9 +37,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Record walkthrough
-        run: node record-demo.mjs
-        env:
-          DEMO_URL: ${{ inputs.url }}
+        run: node "record-${PROJECT}-demo.mjs"
 
       - name: Trim loading frames and convert to MP4
         run: |
@@ -34,9 +45,9 @@ jobs:
           ffmpeg -y -ss "$OFFSET" -i videos/raw.webm \
             -c:v libx264 -preset veryfast -crf 18 \
             -pix_fmt yuv420p -movflags +faststart \
-            videos/demo.mp4
+            "videos/${PROJECT}-demo.mp4"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: demo-video
-          path: videos/demo.mp4
+          name: ${{ inputs.project }}-demo
+          path: videos/${{ inputs.project }}-demo.mp4

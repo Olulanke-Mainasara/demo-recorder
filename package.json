@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "record": "node record-demo.mjs"
+    "record:mevire": "node record-mevire-demo.mjs",
+    "record:evolve": "node record-evolve-demo.mjs",
+    "record:arepo": "node record-arepo-demo.mjs"
   },
   "dependencies": {
-    "playwright": "^1.48.0"
+    "playwright": "^1.64.0"
   }
 }
