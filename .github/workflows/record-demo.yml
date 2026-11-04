@@ -1,0 +1,42 @@
+name: Record demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Site to record
+        default: https://mevire.vercel.app
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Record walkthrough
+        run: node record-demo.mjs
+        env:
+          DEMO_URL: ${{ inputs.url }}
+
+      - name: Trim loading frames and convert to MP4
+        run: |
+          OFFSET=$(node -p "require('./videos/meta.json').trimStart")
+          ffmpeg -y -ss "$OFFSET" -i videos/raw.webm \
+            -c:v libx264 -preset veryfast -crf 18 \
+            -pix_fmt yuv420p -movflags +faststart \
+            videos/demo.mp4
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-video
+          path: videos/demo.mp4
