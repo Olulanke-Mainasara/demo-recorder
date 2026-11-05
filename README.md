@@ -5,7 +5,7 @@ Records smooth scripted walkthroughs of websites on GitHub's servers, so your ow
 ```text
 lib/recorder.mjs              Shared: browser, cursor, scrolling, hovers, drags, saving the video
 record-mevire-demo.mjs        Mevire: home page, then the job board via the nav menu
-record-evolve-demo.mjs        Evolve: the whole scroll story, ending on the Day / Night switch
+record-evolve-demo.mjs        Evolve: the whole scroll story, in Night mode
 record-arepo-demo.mjs         Arepo: home page, then the Products page via the header nav
 .github/workflows/record-demo.yml
 ```
@@ -29,9 +29,10 @@ Helpers you can use, all from `lib/recorder.mjs`:
 
 - `smoothScrollBy(page, px, speed)`: scroll with real wheel events. `speed` is `FAST`, `NORMAL`, `SLOW` or your own `{ step, delay }` (lower step or higher delay is slower).
 - `scrollTo(page, locator, { at: 0.15 })`: scroll until the element's top is 15% down the screen.
-- `scrollToBottom(page, speed)`
+- `scrollToBottom(page, speed)` and `scrollToTop(page, speed)`
 - `hover(page, locator, pauseMs)`: glide the cursor over something and hold so its hover effect shows.
 - `click(page, locator)`: hover, then click.
+- `glideX(page, locator, { to: "end", duration: 4000 })`: smooth eased sideways scroll of a carousel strip (`to` is `"end"`, `"start"` or px).
 - `drag(page, locator, dx)`: press and drag sideways, for carousels.
 - `wait(page, ms)`
 

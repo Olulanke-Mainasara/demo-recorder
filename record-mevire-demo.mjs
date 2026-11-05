@@ -15,9 +15,10 @@ import {
   smoothScrollBy,
   scrollTo,
   scrollToBottom,
+  scrollToTop,
+  glideX,
   hover,
   click,
-  drag,
   record,
 } from "./lib/recorder.mjs";
 
@@ -25,28 +26,34 @@ const URL = process.env.DEMO_URL || "https://mevire.vercel.app";
 
 // The staircase line in "How a job moves" is scrubbed to scroll, so this
 // stretch goes slowly enough to read each step as it's drawn
-const CRAWL = { step: 8, delay: 30 };
+const CRAWL = { step: 18, delay: 30 };
+// An easy browsing pace, for scrolling past the register's photos
+const BROWSE = { step: 14, delay: 22 };
+// The long run from the footer back up to the hero (about 2 to 3s)
+const RETURN = { step: 80, delay: 16 };
 
 const section = (page, heading) =>
-  page.locator("section").filter({ has: page.getByRole("heading", { name: heading }) });
+  page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: heading }) });
 
 // The navbar fades out while scrolling down and back in on any scroll up.
-// Nudge the page up and wait until the bar can actually be clicked.
+const navBarShowing = () => {
+  const bar = document
+    .querySelector("[aria-controls='site-menu']")
+    ?.closest("header");
+  if (!bar) return true;
+  const style = getComputedStyle(bar);
+  return style.visibility !== "hidden" && Number(style.opacity) > 0.95;
+};
+
+// Nudge the page up if the bar is hidden, and wait until it can be clicked
 async function revealNavBar(page) {
-  await smoothScrollBy(page, -180, NORMAL);
+  if (!(await page.evaluate(navBarShowing))) {
+    await smoothScrollBy(page, -180, NORMAL);
+  }
   await page
-    .waitForFunction(
-      () => {
-        const bar = document
-          .querySelector("[aria-controls='site-menu']")
-          ?.closest("header");
-        if (!bar) return true;
-        const style = getComputedStyle(bar);
-        return style.visibility !== "hidden" && Number(style.opacity) > 0.95;
-      },
-      null,
-      { timeout: 3000 },
-    )
+    .waitForFunction(navBarShowing, null, { timeout: 3000 })
     .catch(() => console.warn("Navbar didn't come back into view"));
   await wait(page, 300);
 }
@@ -63,16 +70,21 @@ const menuLink = (page, name) =>
 const ON_TEXT = { x: 0.18, y: 0.5 };
 
 async function home(page) {
-  // 1. Hero: heading rises, photos wipe in, navbar drops down
+  // 1. Hero: heading rises, photos wipe in, navbar drops down. The one pill
+  // hover in the video (the orange fill and the label rolling up) is here.
   await wait(page, 700);
   await page.mouse.move(WIDTH * 0.55, HEIGHT * 0.97);
   await hover(
     page,
     page.locator("main").getByRole("link", { name: "Submit a job" }),
-    1000,
+    1100,
   );
   // Swap the hero carousel to its second slide (wipes up, caption rolls in)
-  await click(page, page.getByRole("button", { name: "Show Plant room coordination" }), 500);
+  await click(
+    page,
+    page.getByRole("button", { name: "Show Plant room coordination" }),
+    500,
+  );
   await wait(page, 2200);
   await page.mouse.move(WIDTH * 0.5, HEIGHT * 0.45, { steps: 35 });
   await wait(page, 400);
@@ -81,23 +93,19 @@ async function home(page) {
   await smoothScrollBy(page, HEIGHT, NORMAL);
   await wait(page, 2800);
 
-  // 3. Services: title and cards reveal, then drag through the carousel
+  // 3. Services: title and cards reveal, then one slow sideways glide through
+  // all three cards (the strip scrolls freely, no snapping)
   const services = section(page, "What we do");
   await scrollTo(page, services, { at: 0, speed: NORMAL });
   await wait(page, 1700);
-  await hover(page, page.getByRole("heading", { name: "Design packages" }), 800);
+  await page.mouse.move(WIDTH * 0.5, HEIGHT * 0.62, { steps: 25 });
   const strip = services.locator("article").first().locator("..");
-  await drag(page, strip, -650);
-  await wait(page, 1600);
-  await drag(page, strip, -650);
-  await wait(page, 1600);
-  await click(page, page.getByRole("button", { name: "Show Design packages" }), 400);
-  await wait(page, 1400);
+  await glideX(page, strip, { to: "end", duration: 5500 });
+  await wait(page, 1200);
 
   // 4. How a job moves: park the list just below where the line starts,
   // then crawl so the staircase draws and each step rises in turn
-  const how = section(page, "How a job moves");
-  const steps = how.locator("ol");
+  const steps = section(page, "How a job moves").locator("ol");
   await page.mouse.move(WIDTH * 0.85, HEIGHT * 0.5, { steps: 30 });
   await scrollTo(page, steps, { at: 0.72, speed: NORMAL });
   await wait(page, 1400);
@@ -108,25 +116,27 @@ async function home(page) {
   }
   await wait(page, 1500);
 
-  // 5. On the register: title, then the photo grid with hover zooms
+  // 5. On the register: the title rises, then keep scrolling down the photo
+  // grid without stopping, until the "Your name here." card, which gets the
+  // one hover (its arrow swings round)
   const register = section(page, /^On the register/);
   await scrollTo(page, register.getByRole("heading", { level: 2 }), {
-    at: 0.12,
+    at: 0.15,
     speed: NORMAL,
   });
-  await wait(page, 1500);
-  await hover(page, register.getByRole("link", { name: "Join the register" }), 900);
-  await scrollTo(page, register.locator("ul").first(), { at: 0.02, speed: NORMAL });
-  await wait(page, 600);
-  for (const name of [
-    "Chukwuemeka Obi",
-    "Mei Lin Tan & Grace Wong",
-    "Hannah Clarke",
-    "Adaeze Nwosu & Bisi Adeyemi",
-    "Your name here.",
-  ]) {
-    await hover(page, register.locator("li").filter({ hasText: name }), 1100);
+  await wait(page, 1000);
+  const yourName = register
+    .locator("li")
+    .filter({ hasText: "Your name here." });
+  const card = await yourName.boundingBox().catch(() => null);
+  if (card) {
+    // Wait in the card's column, so it scrolls up under the cursor
+    await page.mouse.move(card.x + card.width / 2, HEIGHT * 0.56, {
+      steps: 25,
+    });
   }
+  await scrollTo(page, yourName, { at: 0.4, speed: BROWSE });
+  await hover(page, yourName, 1200);
 
   // 6. Pick your side: rules draw across, rows rise, hovering dims the others
   const sides = section(page, /^Pick your side/);
@@ -135,26 +145,36 @@ async function home(page) {
     speed: NORMAL,
   });
   await wait(page, 1800);
-  await hover(page, sides.getByRole("link", { name: "See what's open" }), 900);
   await scrollTo(page, sides.locator("ul"), { at: 0.25, speed: NORMAL });
   for (const title of ["Take drawings", "Take a site", "Work a trade"]) {
-    await hover(page, sides.getByRole("link").filter({ hasText: title }), 1000, {
-      x: 0.35,
-      y: 0.5,
-    });
+    await hover(
+      page,
+      sides.getByRole("link").filter({ hasText: title }),
+      1000,
+      {
+        x: 0.35,
+        y: 0.5,
+      },
+    );
   }
 
-  // 7. Footer: photo parallax, email headline, then the wordmark letters rise
-  const footer = page.locator("footer");
+  // 7. Footer: straight to the very bottom without stopping, so the photo
+  // parallax plays and the wordmark letters rise in full view. Then back up
+  // to the email headline.
   await page.mouse.move(WIDTH * 0.5, HEIGHT * 0.5, { steps: 25 });
-  await scrollTo(page, footer, { at: 0, speed: NORMAL });
-  await wait(page, 1300);
-  await hover(page, footer.getByRole("link", { name: "support.mevire@gmail.com" }), 1000);
-  await page.mouse.move(WIDTH * 0.6, HEIGHT * 0.35, { steps: 25 });
   await scrollToBottom(page, NORMAL);
-  await wait(page, 1800);
+  await wait(page, 2600);
+  const email = page
+    .locator("footer")
+    .getByRole("link", { name: "support.mevire@gmail.com" });
+  await scrollTo(page, email, { at: 0.35, speed: NORMAL });
+  await hover(page, email, 1100);
 
-  // 8. Into the job board through the nav menu
+  // 8. All the way back up to the hero, then into the job board through the
+  // nav menu (scrolling up has already brought the bar back)
+  await page.mouse.move(WIDTH * 0.5, HEIGHT * 0.5, { steps: 25 });
+  await scrollToTop(page, RETURN);
+  await wait(page, 1200);
   await revealNavBar(page);
   await openMenu(page);
   await hover(page, menuLink(page, "Home"), 600, ON_TEXT);
@@ -167,12 +187,7 @@ async function home(page) {
 
 async function jobBoard(page) {
   // Menu slides away while the page header rises and the rows come in
-  await wait(page, 2200);
-  await hover(
-    page,
-    page.locator("main").getByRole("link", { name: "Sign in for full details" }),
-    1000,
-  );
+  await wait(page, 2600);
 
   // Filters: each pick re-runs the rows' rise
   const filters = page.getByRole("group", { name: "Filter by role" });
@@ -193,8 +208,7 @@ async function jobBoard(page) {
   const alert = section(page, /^Postings hit the WhatsApp group first/);
   await page.mouse.move(WIDTH * 0.5, HEIGHT * 0.5, { steps: 25 });
   await scrollTo(page, alert, { at: 0.08, speed: NORMAL });
-  await wait(page, 1800);
-  await hover(page, alert.getByRole("link", { name: "Join the WhatsApp group" }), 1000);
+  await wait(page, 2200);
 
   // Close on the menu again: "Job board" now shows as the current page
   await revealNavBar(page);
@@ -236,7 +250,9 @@ await record({
     if (splash) {
       markStart(0.15);
       await page
-        .waitForFunction(() => window.__splashDone === true, null, { timeout: 20000 })
+        .waitForFunction(() => window.__splashDone === true, null, {
+          timeout: 20000,
+        })
         .catch(() => console.warn("Splash never finished"));
     } else {
       console.warn("No splash showed; starting from the hero");

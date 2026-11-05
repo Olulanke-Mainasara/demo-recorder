@@ -1,5 +1,5 @@
-// Evolve walkthrough: the whole scroll story, from the eye opening to the
-// footer, ending on the Day / Night switch.
+// Evolve walkthrough: the whole scroll story in Night mode, from the eye
+// opening to the footer.
 //
 //   node record-evolve-demo.mjs
 //   DEMO_URL=http://localhost:5173 node record-evolve-demo.mjs
@@ -9,22 +9,24 @@
 // Evolve repo (src/components/*); if a chapter is renamed there, update it here.
 
 import {
-  WIDTH,
   HEIGHT,
   NORMAL,
   wait,
   smoothScrollBy,
   scrollTo,
   scrollToBottom,
-  click,
   record,
 } from "./lib/recorder.mjs";
 
 const URL = process.env.DEMO_URL || "https://evolve-prints.vercel.app";
 
-// The push into the pupil (about 2.5s)
-const DIVE = { step: 10, delay: 24 };
-// Pinned chapters, slow enough to follow each beat (about 5 to 6s each)
+// The two zooms are timed in seconds rather than wheel ticks, so they keep a
+// brisk pace however slow the recording machine is.
+// The push into the pupil
+const DIVE = { duration: 1600 };
+// 03's slab-to-wing zoom: the whole pin, of which the zoom is about 2s
+const ZOOM = { duration: 3200 };
+// Pinned chapters, slow enough to follow each beat
 const STORY = { step: 12, delay: 26 };
 // Parallax chapters
 const DRIFT = { step: 16, delay: 22 };
@@ -55,10 +57,10 @@ async function scrollThrough(page, locator, speed) {
 
 // Scroll to a pinned chapter, hold on its opening, then play the whole pin.
 // `pin` is the element GSAP pins, when it isn't the chapter itself.
-async function pinned(page, selector, { pin = selector, fallback, hold = 1200 }) {
+async function pinned(page, selector, { pin = selector, fallback, hold = 1200, speed = STORY }) {
   await scrollTo(page, page.locator(selector), { at: 0, speed: NORMAL });
   await wait(page, hold);
-  await smoothScrollBy(page, await pinLength(page, pin, fallback), STORY);
+  await smoothScrollBy(page, await pinLength(page, pin, fallback), speed);
   await wait(page, 1500);
 }
 
@@ -76,7 +78,7 @@ async function story(page) {
   await pinned(page, ".family-tree", { fallback: HEIGHT * 2.2 });
 
   // 4. 03 Archaeopteryx: the slab pushes in to the wing, dissolves to the close-up
-  await pinned(page, ".archaeopteryx", { fallback: HEIGHT * 2.4, hold: 1600 });
+  await pinned(page, ".archaeopteryx", { fallback: HEIGHT * 2.4, hold: 1600, speed: ZOOM });
 
   // 5. 04 Feathers and 05 Habits: text reveals, photos drift at different speeds
   for (const chapter of [".feathers", ".habits"]) {
@@ -101,28 +103,22 @@ async function story(page) {
   await scrollTo(page, page.locator(".still-here__closing"), { at: 0.12, speed: NORMAL });
   await wait(page, 2600);
 
-  // 8. Footer: the EVOLVE wordmark with its eye, Night and back to Day,
-  // then down through the sources and credits
+  // 8. Footer: the EVOLVE wordmark with its eye, then down through the
+  // sources and credits
   await scrollTo(page, page.locator("footer"), { at: 0, speed: NORMAL });
-  await wait(page, 1400);
-  await page.mouse.move(WIDTH * 0.6, HEIGHT * 0.55);
-  await click(page, page.getByRole("button", { name: "Night", exact: true }), 500);
-  await wait(page, 2000);
-  await click(page, page.getByRole("button", { name: "Day", exact: true }), 500);
-  await wait(page, 1500);
-  await page.mouse.move(WIDTH * 0.6, HEIGHT * 0.55, { steps: 25 });
+  await wait(page, 1800);
   await scrollToBottom(page, NORMAL);
   await wait(page, 1800);
 }
 
 await record({
   url: URL,
-  colorScheme: "light",
-  // Starts on Day; the walkthrough flips to Night near the end
+  // Night mode throughout, like the Mevire video
+  colorScheme: "dark",
   init: [
     () => {
       try {
-        localStorage.setItem("evolve-theme", "light");
+        localStorage.setItem("evolve-theme", "dark");
       } catch {}
     },
   ],
