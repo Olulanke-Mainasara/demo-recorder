@@ -10,7 +10,6 @@
 
 import {
   HEIGHT,
-  NORMAL,
   wait,
   smoothScrollBy,
   scrollTo,
@@ -20,16 +19,25 @@ import {
 
 const URL = process.env.DEMO_URL || "https://evolve-prints.vercel.app";
 
-// The two zooms are timed in seconds rather than wheel ticks, so they keep a
-// brisk pace however slow the recording machine is.
+// Every scroll is timed (a pace in px per second, or a duration) rather than
+// counted in wheel ticks, so the video comes out the same length however slow
+// the recording machine is. It must stay under 1:30.
+
+// Getting from one chapter to the next
+const MOVE = { rate: 900 };
 // The push into the pupil
 const DIVE = { duration: 1600 };
+// 02's tree, drawn branch by branch across the whole pin
+const TREE = { duration: 7000 };
 // 03's slab-to-wing zoom: the whole pin, of which the zoom is about 2s
 const ZOOM = { duration: 3200 };
-// Pinned chapters, slow enough to follow each beat
-const STORY = { step: 12, delay: 26 };
-// Parallax chapters
-const DRIFT = { step: 16, delay: 22 };
+// 06: the 66, headline and lede at reading pace (the first 44% of the pin)...
+const IMPACT_TEXT = { duration: 4000 };
+// ...then the extinction photo rising up the screen, its caption and the
+// hold (the rest), at a brisk pace: the rise itself is about 1.5s
+const IMPACT_RISE = { duration: 3000 };
+// Parallax chapters, slow enough to see the photos drift apart
+const DRIFT = { rate: 300 };
 
 // A pinned chapter is wrapped in GSAP's .pin-spacer, whose extra height is
 // how far you scroll while it's pinned. Falls back to the length set in code.
@@ -56,12 +64,11 @@ async function scrollThrough(page, locator, speed) {
 }
 
 // Scroll to a pinned chapter, hold on its opening, then play the whole pin.
-// `pin` is the element GSAP pins, when it isn't the chapter itself.
-async function pinned(page, selector, { pin = selector, fallback, hold = 1200, speed = STORY }) {
-  await scrollTo(page, page.locator(selector), { at: 0, speed: NORMAL });
+async function pinned(page, selector, { fallback, hold = 800, speed }) {
+  await scrollTo(page, page.locator(selector), { at: 0, speed: MOVE });
   await wait(page, hold);
-  await smoothScrollBy(page, await pinLength(page, pin, fallback), speed);
-  await wait(page, 1500);
+  await smoothScrollBy(page, await pinLength(page, selector, fallback), speed);
+  await wait(page, 900);
 }
 
 async function story(page) {
@@ -70,45 +77,50 @@ async function story(page) {
   await wait(page, 500);
 
   // 2. 01 Origins: title card on the black, the year counter appears
-  await scrollTo(page, page.locator(".origins"), { at: -0.15, speed: NORMAL });
-  await wait(page, 2600);
+  await scrollTo(page, page.locator(".origins"), { at: -0.15, speed: MOVE });
+  await wait(page, 2000);
 
   // 3. 02 Family tree: the ground lifts to the theme on the way in, then the
   // tree draws branch by branch while the counter runs 230 → 150
-  await pinned(page, ".family-tree", { fallback: HEIGHT * 2.2 });
+  await pinned(page, ".family-tree", { fallback: HEIGHT * 2.2, speed: TREE });
 
   // 4. 03 Archaeopteryx: the slab pushes in to the wing, dissolves to the close-up
-  await pinned(page, ".archaeopteryx", { fallback: HEIGHT * 2.4, hold: 1600, speed: ZOOM });
+  await pinned(page, ".archaeopteryx", { fallback: HEIGHT * 2.4, hold: 1200, speed: ZOOM });
 
   // 5. 04 Feathers and 05 Habits: text reveals, photos drift at different speeds
   for (const chapter of [".feathers", ".habits"]) {
-    await scrollTo(page, page.locator(chapter), { at: 0, speed: NORMAL });
-    await wait(page, 1800);
+    await scrollTo(page, page.locator(chapter), { at: 0, speed: MOVE });
+    await wait(page, 1200);
     await scrollThrough(page, page.locator(chapter), DRIFT);
-    await wait(page, 800);
+    await wait(page, 300);
   }
 
   // 6. 06 Impact: hard cut to black, the huge 66, the headline, then the
-  // extinction layer rises over it
-  await pinned(page, ".impact", { pin: ".impact__pin", fallback: HEIGHT * 2.4, hold: 600 });
+  // extinction photo rises from the bottom of the screen to the top over it
+  await scrollTo(page, page.locator(".impact"), { at: 0, speed: MOVE });
+  await wait(page, 600);
+  const impact = await pinLength(page, ".impact__pin", HEIGHT * 2.4);
+  await smoothScrollBy(page, impact * 0.44, IMPACT_TEXT);
+  await smoothScrollBy(page, impact * 0.56, IMPACT_RISE);
+  await wait(page, 900);
   // "The small ones made it." as the ground comes back
-  await scrollTo(page, page.locator(".impact__aftermath"), { at: 0.3, speed: NORMAL });
-  await wait(page, 2200);
+  await scrollTo(page, page.locator(".impact__aftermath"), { at: 0.3, speed: MOVE });
+  await wait(page, 1600);
 
   // 7. 07 Still here: cassowary, the pigeon full-bleed, then the closing line
-  await scrollTo(page, page.locator(".still-here"), { at: 0, speed: NORMAL });
-  await wait(page, 2000);
-  await scrollTo(page, page.locator(".still-here__pigeon"), { at: 0.08, speed: DRIFT });
+  await scrollTo(page, page.locator(".still-here"), { at: 0, speed: MOVE });
   await wait(page, 1400);
-  await scrollTo(page, page.locator(".still-here__closing"), { at: 0.12, speed: NORMAL });
-  await wait(page, 2600);
+  await scrollTo(page, page.locator(".still-here__pigeon"), { at: 0.08, speed: DRIFT });
+  await wait(page, 900);
+  await scrollTo(page, page.locator(".still-here__closing"), { at: 0.12, speed: MOVE });
+  await wait(page, 1800);
 
   // 8. Footer: the EVOLVE wordmark with its eye, then down through the
   // sources and credits
-  await scrollTo(page, page.locator("footer"), { at: 0, speed: NORMAL });
-  await wait(page, 1800);
-  await scrollToBottom(page, NORMAL);
-  await wait(page, 1800);
+  await scrollTo(page, page.locator("footer"), { at: 0, speed: MOVE });
+  await wait(page, 1400);
+  await scrollToBottom(page, MOVE);
+  await wait(page, 1400);
 }
 
 await record({

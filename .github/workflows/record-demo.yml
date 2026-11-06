@@ -39,10 +39,12 @@ jobs:
       - name: Record walkthrough
         run: node "record-${PROJECT}-demo.mjs"
 
-      - name: Trim loading frames and convert to MP4
+      # Every video must be 1:30 or shorter. The scripts are timed to finish
+      # around 1:20; -t 90 is only a backstop that cuts anything longer.
+      - name: Trim loading frames and convert to MP4 (max 1:30)
         run: |
           OFFSET=$(node -p "require('./videos/meta.json').trimStart")
-          ffmpeg -y -ss "$OFFSET" -i videos/raw.webm \
+          ffmpeg -y -ss "$OFFSET" -i videos/raw.webm -t 90 \
             -c:v libx264 -preset veryfast -crf 18 \
             -pix_fmt yuv420p -movflags +faststart \
             "videos/${PROJECT}-demo.mp4"
