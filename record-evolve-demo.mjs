@@ -125,6 +125,7 @@ async function story(page) {
 
 await record({
   url: URL,
+  title: "Evolve",
   // Night mode throughout, like the Mevire video
   colorScheme: "dark",
   init: [

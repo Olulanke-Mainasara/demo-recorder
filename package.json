@@ -5,9 +5,17 @@
   "scripts": {
     "record:mevire": "node record-mevire-demo.mjs",
     "record:evolve": "node record-evolve-demo.mjs",
-    "record:arepo": "node record-arepo-demo.mjs"
+    "record:arepo": "node record-arepo-demo.mjs",
+    "studio": "remotion studio remotion/index.jsx",
+    "render": "node render.mjs"
   },
   "dependencies": {
-    "playwright": "^1.64.0"
+    "@remotion/cli": "4.0.542",
+    "@remotion/google-fonts": "4.0.542",
+    "@remotion/media": "4.0.542",
+    "playwright": "^1.64.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.542"
   }
 }

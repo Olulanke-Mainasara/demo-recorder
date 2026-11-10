@@ -16,6 +16,10 @@ on:
         description: Site URL (leave blank to use the one in the project's script)
         required: false
         default: ""
+      frame:
+        description: Mac window frame (1920×1080, on a random landscape photo). Untick for the plain 1440×900 recording.
+        type: boolean
+        default: true
 
 jobs:
   record:
@@ -34,14 +38,26 @@ jobs:
         run: |
           npm install
           npx playwright install --with-deps chromium
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Remotion's browser
+        if: ${{ inputs.frame }}
+        run: npx remotion browser ensure
+
+      - name: Install ffmpeg
+        if: ${{ !inputs.frame }}
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Record walkthrough
         run: node "record-${PROJECT}-demo.mjs"
 
       # Every video must be 1:30 or shorter. The scripts are timed to finish
-      # around 1:20; -t 90 is only a backstop that cuts anything longer.
+      # around 1:20; both steps below cut at 1:30 only as a backstop.
+      - name: Frame it in a Mac window with Remotion (max 1:30)
+        if: ${{ inputs.frame }}
+        run: node render.mjs "videos/${PROJECT}-demo.mp4"
+
       - name: Trim loading frames and convert to MP4 (max 1:30)
+        if: ${{ !inputs.frame }}
         run: |
           OFFSET=$(node -p "require('./videos/meta.json').trimStart")
           ffmpeg -y -ss "$OFFSET" -i videos/raw.webm -t 90 \

@@ -135,6 +135,7 @@ async function productsPage(page) {
 
 await record({
   url: URL,
+  title: "Arepo",
   walkthrough: async (page, markStart, url) => {
     // Prerendered static HTML, no intro: start as soon as it's painted
     await page.goto(url, { waitUntil: "load" });

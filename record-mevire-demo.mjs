@@ -224,6 +224,7 @@ async function jobBoard(page) {
 
 await record({
   url: URL,
+  title: "Mevire",
   colorScheme: "dark",
   init: [
     () => {
